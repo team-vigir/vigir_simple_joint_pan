@@ -11,8 +11,17 @@ from std_msgs.msg import *
 
 from copy import deepcopy
 
-#class Segment:
-#      self._bla = 1
+class Segment:
+  def __init__(self):
+      self._start_position = 0
+      self._start_velocity = 0
+      self._acceleration = 0
+      self._start_time = 0
+      self._end_time = 0
+      
+  def sample(self, time_offset, start_position):
+      bla = 0
+ 
    
 
 class JointTrajectoryPanControl:
@@ -32,12 +41,27 @@ class JointTrajectoryPanControl:
         
         return trajectory_point
   
+  def multi_sample (self, time_offset, time_sample_start, time_sample_end, num_samples, position_begin, velocity_begin, acceleration):
+            
+        time_increment = (time_sample_end - time_sample_start) / num_samples
+        
+        trajectory_points = []
+    
+        for i in range (0, num_samples+1):
+	  
+	    time_sample = time_sample_start + time_increment*i
+            trajectory_points.append(self.sample(time_offset, time_sample , position_begin, velocity_begin, acceleration))
+    
+        return trajectory_points
+  
   def set_motion_properties(self, time_from_start, velocity, max_acceleration, start_position, target_position):
   
         acceleration = math.copysign (max_acceleration, velocity)
         
         #When do we reach our desired velocity?
         dur_ramp_up = velocity/acceleration
+        
+        #from_start = 0
         
         # Path travelled till desired velocity reached
         s_ramp_up = 0 * dur_ramp_up + 0.5 * acceleration * dur_ramp_up * dur_ramp_up
@@ -47,10 +71,21 @@ class JointTrajectoryPanControl:
         
         dur_mid = (pos_ramp_down - pos_ramp_up) / velocity
         
+        dur_final = dur_ramp_up + dur_mid + dur_ramp_up
+        
+        #upper_segment = Segment()
+        #mid_segment = Segment()
+        #lower_segment = Segment()
+        
         trajectory_points = []
-        trajectory_points.append(self.sample(dur_ramp_up, 0                    , pos_ramp_up, velocity, 0))
-        trajectory_points.append(self.sample(dur_ramp_up, dur_mid              , pos_ramp_up, velocity, 0))
-        trajectory_points.append(self.sample(dur_ramp_up + dur_mid, dur_ramp_up, pos_ramp_down, velocity, -acceleration))
+        trajectory_points.extend(self.multi_sample(dur_ramp_up, 0, dur_mid, 3     , pos_ramp_up, velocity, 0))
+        #trajectory_points.append(self.sample(dur_ramp_up, 0                     , pos_ramp_up, velocity, 0))
+        #trajectory_points.append(self.sample(dur_ramp_up, dur_mid               , pos_ramp_up, velocity, 0))
+        trajectory_points.append(self.sample(dur_ramp_up + dur_mid, dur_ramp_up , pos_ramp_down, velocity, -acceleration))
+        trajectory_points.extend(self.multi_sample(dur_final + dur_ramp_up, 0, dur_mid, 3     , pos_ramp_down, -velocity, 0))        
+        #trajectory_points.append(self.sample(dur_final + dur_ramp_up, 0         , pos_ramp_down, -velocity, 0))
+        #trajectory_points.append(self.sample(dur_final + dur_ramp_up, dur_mid   , pos_ramp_down, -velocity, 0))
+        trajectory_points.append(self.sample(dur_final + dur_ramp_up + dur_mid  , dur_ramp_up    , pos_ramp_up, -velocity, acceleration))
         
         return trajectory_points
         
@@ -81,15 +116,6 @@ class JointTrajectoryPanControl:
           
         
         self._goal.trajectory.joint_names.append(self._param_joint_name)
-        
-        #self._goal.trajectory.points = [ FollowJointTrajectoryGoal() for i in range(5)]
-        
-        
-        #self._goal.trajectory.points.append(deepcopy(self._goal_point))
-        #self._goal.trajectory.points.append(deepcopy(self._goal_point))
-        #self._goal.trajectory.points.append(deepcopy(self._goal_point))
-        
-        #self.set_motion_properties(self._velocity_command)
          
         self._vel_sub = rospy.Subscriber("velocity_command", Float64, self.vel_cmd_callback)
 	
@@ -106,11 +132,11 @@ class JointTrajectoryPanControl:
 	    
 	    if up == True: 
 	      self._goal.trajectory.points = self.set_motion_properties(0, self._velocity_command, self._param_acceleration, self._param_min_angle, self._param_max_angle)
-	      up = False
+	      #up = False
 
-	    else:
-	      self._goal.trajectory.points = self.set_motion_properties(0, -self._velocity_command, self._param_acceleration, self._param_max_angle, self._param_min_angle)
-	      up = True
+	    #else:
+	      #self._goal.trajectory.points = self.set_motion_properties(0, -self._velocity_command, self._param_acceleration, self._param_max_angle, self._param_min_angle)
+	      #up = True
 	    
 	    self._goal.trajectory.header.stamp = rospy.Time.now()
 	    self._client.send_goal(self._goal)

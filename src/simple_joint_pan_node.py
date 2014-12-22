@@ -26,6 +26,19 @@ class Segment:
 
 class JointTrajectoryPanControl:
   
+  def get_trajectory_total_time(self, trajectory):
+        return trajectory[-1].time_from_start
+      
+  def shift_and_clone_trajectory_points(self, trajectory_points):
+        
+        trajectory_points_clone = deepcopy(trajectory_points)
+        
+        for i in trajectory_points_clone:
+          i.time_from_start += trajectory_points[-1].time_from_start
+	  
+	return trajectory_points_clone
+	  
+  
   
   def sample (self, time_offset, time_sample, position_begin, velocity_begin, acceleration):
         
@@ -49,7 +62,7 @@ class JointTrajectoryPanControl:
     
         for i in range (0, num_samples+1):
 	  
-	    time_sample = time_sample_start + time_increment*i
+	    time_sample = time_sample_start + time_increment*i	    
             trajectory_points.append(self.sample(time_offset, time_sample , position_begin, velocity_begin, acceleration))
     
         return trajectory_points
@@ -61,7 +74,7 @@ class JointTrajectoryPanControl:
         #When do we reach our desired velocity?
         dur_ramp_up = velocity/acceleration
         
-        #from_start = 0
+        from_start = 0
         
         # Path travelled till desired velocity reached
         s_ramp_up = 0 * dur_ramp_up + 0.5 * acceleration * dur_ramp_up * dur_ramp_up
@@ -71,21 +84,15 @@ class JointTrajectoryPanControl:
         
         dur_mid = (pos_ramp_down - pos_ramp_up) / velocity
         
-        dur_final = dur_ramp_up + dur_mid + dur_ramp_up
-        
-        #upper_segment = Segment()
-        #mid_segment = Segment()
-        #lower_segment = Segment()
+        dur_final =  from_start + dur_mid*0.5 + dur_ramp_up
         
         trajectory_points = []
-        trajectory_points.extend(self.multi_sample(dur_ramp_up, 0, dur_mid, 3     , pos_ramp_up, velocity, 0))
-        #trajectory_points.append(self.sample(dur_ramp_up, 0                     , pos_ramp_up, velocity, 0))
-        #trajectory_points.append(self.sample(dur_ramp_up, dur_mid               , pos_ramp_up, velocity, 0))
-        trajectory_points.append(self.sample(dur_ramp_up + dur_mid, dur_ramp_up , pos_ramp_down, velocity, -acceleration))
+        trajectory_points.extend(self.multi_sample(from_start, 0.01, dur_mid*0.5, 3     , 0, velocity, 0))
+        trajectory_points.append(self.sample(from_start + dur_mid*0.5, dur_ramp_up , pos_ramp_down, velocity, -acceleration))
         trajectory_points.extend(self.multi_sample(dur_final + dur_ramp_up, 0, dur_mid, 3     , pos_ramp_down, -velocity, 0))        
-        #trajectory_points.append(self.sample(dur_final + dur_ramp_up, 0         , pos_ramp_down, -velocity, 0))
-        #trajectory_points.append(self.sample(dur_final + dur_ramp_up, dur_mid   , pos_ramp_down, -velocity, 0))
         trajectory_points.append(self.sample(dur_final + dur_ramp_up + dur_mid  , dur_ramp_up    , pos_ramp_up, -velocity, acceleration))
+        trajectory_points.extend(self.multi_sample(dur_final + dur_ramp_up*3 + dur_mid, 0, dur_mid*0.5, 3, pos_ramp_up, velocity, 0))
+        
         
         return trajectory_points
         
@@ -93,54 +100,60 @@ class JointTrajectoryPanControl:
   def vel_cmd_callback(self, data):	  
 	self._velocity_command = data.data
 	
+	self._trajectory_points = self.set_motion_properties(0, self._velocity_command, self._param_acceleration, self._param_min_angle, self._param_max_angle)
+	
   def __init__(self):
     
         self._velocity_command = 1.0
 	  
         self._param_joint_name = "waist_lidar"
-        self._param_acceleration = 3.14*5
+        self._param_acceleration = 3.14*2
         self._param_min_angle = -0.8
         self._param_max_angle = 0.8
 	  
         self._client = actionlib.SimpleActionClient("/thor_mang/waist_lidar_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
         self._client.wait_for_server(rospy.Duration.from_sec(0.5))
           
-          
-        self._goal_point = JointTrajectoryPoint()
-        self._goal_point.positions.append(0.8)
-        self._goal_point.velocities.append(0)
-        self._goal_point.accelerations.append(0)
-        self._goal_point.time_from_start = rospy.Duration(0.1)
-         
         self._goal = FollowJointTrajectoryGoal()          
           
         
         self._goal.trajectory.joint_names.append(self._param_joint_name)
          
         self._vel_sub = rospy.Subscriber("velocity_command", Float64, self.vel_cmd_callback)
+        
+        self._trajectory_points = self.set_motion_properties(0, self._velocity_command, self._param_acceleration, self._param_min_angle, self._param_max_angle)
 	
 	  
-  def run(self):
+  def run(self):        
     
-        up = True
+        next_start_time = rospy.Time.now()
         
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown():		  
 	  
 	  if self._velocity_command <= 0.0001:
-	    rospy.sleep(0.1)
+            self._client.cancel_all_goals()
 	  else:
 	    
-	    if up == True: 
-	      self._goal.trajectory.points = self.set_motion_properties(0, self._velocity_command, self._param_acceleration, self._param_min_angle, self._param_max_angle)
+	    traj_time = self.get_trajectory_total_time(self._trajectory_points)
+	    #if up == True: 
+	    self._goal.trajectory.points = deepcopy(self._trajectory_points)
+	    clone = self.shift_and_clone_trajectory_points(self._goal.trajectory.points)
+	    self._goal.trajectory.points.extend(clone)
+	    #print (self.get_trajectory_total_time(self._goal.trajectory.points))
 	      #up = False
 
 	    #else:
 	      #self._goal.trajectory.points = self.set_motion_properties(0, -self._velocity_command, self._param_acceleration, self._param_max_angle, self._param_min_angle)
 	      #up = True
 	    
-	    self._goal.trajectory.header.stamp = rospy.Time.now()
+	    #self._goal.trajectory.header.stamp = rospy.Time.now()
+	    self._goal.trajectory.header.stamp = next_start_time
 	    self._client.send_goal(self._goal)
-	    self._client.wait_for_result()	    
+	    next_start_time = next_start_time + traj_time
+	    rospy.sleep(traj_time.to_sec()-0.1)
+	    #self._client.wait_for_result()
+	    
+	    #rospy.sleep(0.1)
 
 if __name__ == "__main__":
   

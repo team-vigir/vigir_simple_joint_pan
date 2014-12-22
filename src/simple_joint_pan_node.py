@@ -11,14 +11,35 @@ from std_msgs.msg import *
 
 from copy import deepcopy
 
+#class Segment:
+#      self._bla = 1
+   
 
 class JointTrajectoryPanControl:
+  
+  
+  def sample (self, time_offset, time_sample, position_begin, velocity_begin, acceleration):
+        
+        vel_sample = velocity_begin + acceleration * time_sample
+        pos_sample = position_begin + velocity_begin * time_sample + 0.5 * acceleration * time_sample * time_sample
+        
+        trajectory_point = JointTrajectoryPoint()
+        
+        trajectory_point.time_from_start = rospy.Duration(time_offset + time_sample)
+        trajectory_point.positions.append(pos_sample)
+        trajectory_point.velocities.append(vel_sample)
+        trajectory_point.accelerations.append(acceleration)        
+        
+        return trajectory_point
   
   def set_motion_properties(self, time_from_start, velocity, max_acceleration, start_position, target_position):
   
         acceleration = math.copysign (max_acceleration, velocity)
         
+        #When do we reach our desired velocity?
         dur_ramp_up = velocity/acceleration
+        
+        # Path travelled till desired velocity reached
         s_ramp_up = 0 * dur_ramp_up + 0.5 * acceleration * dur_ramp_up * dur_ramp_up
         pos_ramp_up = start_position + s_ramp_up
         
@@ -26,26 +47,13 @@ class JointTrajectoryPanControl:
         
         dur_mid = (pos_ramp_down - pos_ramp_up) / velocity
         
-        trajectory_points = [ JointTrajectoryPoint() for i in range(3)]
-        
-        trajectory_points[0].time_from_start = rospy.Duration(time_from_start + dur_ramp_up)
-        trajectory_points[0].positions.append(pos_ramp_up)
-        trajectory_points[0].velocities.append(velocity)
-        trajectory_points[0].accelerations.append(0)
-        
-        trajectory_points[1].time_from_start = rospy.Duration(time_from_start + dur_ramp_up + dur_mid)
-        trajectory_points[1].positions.append(pos_ramp_down)
-        trajectory_points[1].velocities.append(velocity)
-        trajectory_points[1].accelerations.append(0)
-        
-        trajectory_points[2].time_from_start = rospy.Duration(time_from_start + dur_ramp_up + dur_mid + dur_ramp_up)
-        trajectory_points[2].positions.append(target_position)
-        trajectory_points[2].velocities.append(0)
-        trajectory_points[2].accelerations.append(0)
+        trajectory_points = []
+        trajectory_points.append(self.sample(dur_ramp_up, 0                    , pos_ramp_up, velocity, 0))
+        trajectory_points.append(self.sample(dur_ramp_up, dur_mid              , pos_ramp_up, velocity, 0))
+        trajectory_points.append(self.sample(dur_ramp_up + dur_mid, dur_ramp_up, pos_ramp_down, velocity, -acceleration))
         
         return trajectory_points
         
-        #print self._goal
     
   def vel_cmd_callback(self, data):	  
 	self._velocity_command = data.data

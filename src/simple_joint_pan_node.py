@@ -102,10 +102,14 @@ class JointTrajectoryPanControl:
 
         if (self._velocity_command > 0):
 	  self._trajectory_points = self.set_motion_properties(0, self._velocity_command, self._param_acceleration, self._param_min_angle, self._param_max_angle)
+	else:
+	  self._trajectory_points = []
+	  
+	self._client.cancel_all_goals()  
 	
   def __init__(self):
     
-        self._velocity_command = 3.0
+        self._velocity_command = 2.0
 	  
         self._param_joint_name = "waist_lidar"
         self._param_acceleration = 3.14*5
@@ -131,11 +135,10 @@ class JointTrajectoryPanControl:
         
         while not rospy.is_shutdown():		  
 	  
-	  if self._velocity_command <= 0.0001:
-            self._client.cancel_all_goals()
-	  else:
-  
-            if ( (rospy.Time.now() > (next_start_time - rospy.Duration(0.1))) and (len(self._trajectory_points) > 0)):
+	  if (len(self._trajectory_points) == 0):
+              self._client.cancel_all_goals()
+	  elif ( (rospy.Time.now() > (next_start_time - rospy.Duration(0.1)))): #or (self._client.get_state != 1)):
+	    
 	      traj_time = self.get_trajectory_total_time(self._trajectory_points)
 	      self._goal.trajectory.points = deepcopy(self._trajectory_points)
 	      clone = self.shift_and_clone_trajectory_points(self._goal.trajectory.points)

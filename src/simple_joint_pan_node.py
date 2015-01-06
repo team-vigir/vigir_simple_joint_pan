@@ -109,7 +109,7 @@ class JointTrajectoryPanControl:
 	
   def __init__(self):
     
-        self._velocity_command = 2.0
+        self._velocity_command = 0.5
 	  
         self._param_joint_name = "waist_lidar"
         self._param_acceleration = 3.14*5

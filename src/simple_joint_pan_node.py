@@ -137,6 +137,7 @@ class JointTrajectoryPanControl:
 	  
 	  if (len(self._trajectory_points) == 0):
               self._client.cancel_all_goals()
+              rospy.sleep(0.1)
 	  elif ( (rospy.Time.now() > (next_start_time - rospy.Duration(0.1)))): #or (self._client.get_state != 1)):
 	    
 	      traj_time = self.get_trajectory_total_time(self._trajectory_points)

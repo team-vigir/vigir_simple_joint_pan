@@ -136,8 +136,7 @@ class JointTrajectoryPanControl:
         while not rospy.is_shutdown():		  
 	  
 	  if (len(self._trajectory_points) == 0):
-              self._client.cancel_all_goals()
-              rospy.sleep(0.1)
+              self._client.cancel_all_goals()             
 	  elif ( (rospy.Time.now() > (next_start_time - rospy.Duration(0.1)))): #or (self._client.get_state != 1)):
 	    
 	      traj_time = self.get_trajectory_total_time(self._trajectory_points)
@@ -148,7 +147,8 @@ class JointTrajectoryPanControl:
 	      self._goal.trajectory.header.stamp = next_start_time
 	      self._client.send_goal(self._goal)
 	      next_start_time = next_start_time + traj_time
-	      rospy.sleep(0.1)	   
+	      
+	  rospy.sleep(0.1)	   
 
 if __name__ == "__main__":
   

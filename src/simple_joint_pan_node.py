@@ -139,8 +139,10 @@ class JointTrajectoryPanControl:
                 pass
 
 if __name__ == "__main__":
-    rospy.init_node("simple_joint_pan_node")
-    rospy.sleep(0.5)
-
-    pan_control = JointTrajectoryPanControl()
-    pan_control.run()
+	rospy.init_node("simple_joint_pan_node")
+	try:
+		rospy.sleep(0.5)
+	except rospy.exceptions.ROSInterruptException:
+		pass
+	pan_control = JointTrajectoryPanControl()
+	pan_control.run()

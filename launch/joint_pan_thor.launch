@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+
+<launch>
+
+<node name="simple_joint_pan_node" pkg="vigir_simple_joint_pan" type="joint_pan_node" output="screen">
+	<rosparam param="default_joint_config">
+        wait_lidar: 0.0 # panning
+    </rosparam>
+	<param name="~panning_joint_name" value="wait_lidar" />
+
+	<param name="~action_topic" value="/thor_mang/waist_lidar_controller/follow_joint_trajectory" />
+	<param name="~acceleration" value="15.5" />
+	<param name="~min_angle" value="-0.8" />
+	<param name="~max_angle" value="0.8" />
+	<param name="~autostart" value="True" />
+</node>
+
+</launch>

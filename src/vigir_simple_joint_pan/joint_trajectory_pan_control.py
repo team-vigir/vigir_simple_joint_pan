@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-import roslib; roslib.load_manifest('vigir_simple_joint_pan')
 import math
 import rospy
 import sensor_msgs.msg
 import actionlib
+
 from control_msgs.msg import *
 from trajectory_msgs.msg import *
 from std_msgs.msg import *
@@ -12,25 +12,27 @@ from copy import deepcopy
 
 class JointTrajectoryPanControl:
 
-    def __init__(self):
-        self._velocity_command = 0.5
+    def __init__(self, default_config, joint_name, action_topic, acceleration, min_angle, max_angle, autostart):
+        self._default_config = default_config
+        self._param_joint_name = joint_name
+        self._param_acceleration = acceleration
+        self._param_min_angle = min_angle
+        self._param_max_angle = max_angle
 
-        self._param_joint_name = "waist_lidar"
-        self._param_acceleration = 3.14*5
-        self._param_min_angle = -0.8
-        self._param_max_angle = 0.8
-
-        self._client = actionlib.SimpleActionClient("/thor_mang/waist_lidar_controller/follow_joint_trajectory", FollowJointTrajectoryAction)
+        self._client = actionlib.SimpleActionClient(action_topic, FollowJointTrajectoryAction)
         self._client.wait_for_server(rospy.Duration.from_sec(0.5))
 
         self._goal = FollowJointTrajectoryGoal()
 
-        self._goal.trajectory.joint_names.append(self._param_joint_name)
+        self._goal.trajectory.joint_names = self._default_config.keys()
 
         self._vel_sub = rospy.Subscriber("velocity_command", Float64, self.vel_cmd_callback)
 
-        self._trajectory_points = self.set_motion_properties(0, self._velocity_command, self._param_acceleration, self._param_min_angle, self._param_max_angle)
-  
+        self._velocity_command = 0.5 \
+            if autostart else 0 
+        self._trajectory_points = self.set_motion_properties(0, self._velocity_command, self._param_acceleration, self._param_min_angle, self._param_max_angle) \
+            if self._velocity_command != 0 else []
+
     @staticmethod
     def get_trajectory_total_time(trajectory):
         return trajectory[-1].time_from_start
@@ -44,17 +46,22 @@ class JointTrajectoryPanControl:
         return trajectory_points_clone
 
     # Samples trajectory at given time_sample
-    @staticmethod
-    def sample(time_offset, time_sample, position_begin, velocity_begin, acceleration):
+    def sample(self, time_offset, time_sample, position_begin, velocity_begin, acceleration):
         vel_sample = velocity_begin + acceleration * time_sample
         pos_sample = position_begin + velocity_begin * time_sample + 0.5 * acceleration * time_sample * time_sample
         
         trajectory_point = JointTrajectoryPoint()
         
         trajectory_point.time_from_start = rospy.Duration(time_offset + time_sample)
-        trajectory_point.positions.append(pos_sample)
-        trajectory_point.velocities.append(vel_sample)
-        trajectory_point.accelerations.append(acceleration)        
+        for name, angle in self._default_config.items():
+            if name == self._param_joint_name:
+                trajectory_point.positions.append(pos_sample)
+                trajectory_point.velocities.append(vel_sample)
+                trajectory_point.accelerations.append(acceleration)
+            else:
+                trajectory_point.positions.append(angle)
+                trajectory_point.velocities.append(0)
+                trajectory_point.accelerations.append(0)
         
         return trajectory_point
   
@@ -120,10 +127,12 @@ class JointTrajectoryPanControl:
 
     def run(self):
         next_start_time = rospy.Time.now()
+        rate = rospy.Rate(10)
         
         while not rospy.is_shutdown():
             if len(self._trajectory_points) == 0:
-                self._client.cancel_all_goals()
+                #self._client.cancel_all_goals()
+                pass
             elif rospy.Time.now() > (next_start_time - rospy.Duration(0.1)): # or (self._client.get_state != 1)):
                 traj_time = self.get_trajectory_total_time(self._trajectory_points)
                 self._goal.trajectory.points = deepcopy(self._trajectory_points)
@@ -134,15 +143,6 @@ class JointTrajectoryPanControl:
                 self._client.send_goal(self._goal)
                 next_start_time = next_start_time + traj_time
             try:
-                rospy.sleep(0.1)
+                rate.sleep()
             except rospy.exceptions.ROSInterruptException:
                 pass
-
-if __name__ == "__main__":
-	rospy.init_node("simple_joint_pan_node")
-	try:
-		rospy.sleep(0.5)
-	except rospy.exceptions.ROSInterruptException:
-		pass
-	pan_control = JointTrajectoryPanControl()
-	pan_control.run()

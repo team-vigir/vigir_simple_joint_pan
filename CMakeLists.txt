@@ -6,6 +6,8 @@ find_package(catkin REQUIRED COMPONENTS
   trajectory_msgs
 )
 
+catkin_python_setup()
+
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES vigir_simple_joint_pan
@@ -16,3 +18,8 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
+
+FILE(GLOB BIN_FILES "bin/*")
+
+# install executables
+install(PROGRAMS ${BIN_FILES} DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

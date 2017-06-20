@@ -4,18 +4,15 @@
 
 <node name="simple_joint_pan_node" pkg="vigir_simple_joint_pan" type="joint_pan_node" output="screen">
 	<rosparam param="default_joint_config">
-        arm_joint_0: 0.0
-        arm_joint_1: -0.91
-        arm_joint_2: -2.3
-        arm_joint_3: 1.4
-        arm_joint_4: 0.0 # panning
+        sensor_head_pitch_joint: 2.6
+        sensor_head_yaw_joint: 0.0 # panning
     </rosparam>
-	<param name="~panning_joint_name" value="arm_joint_4" />
+	<param name="~panning_joint_name" value="sensor_head_yaw_joint" />
 
-	<param name="~action_topic" value="/argonaut_robot/arm_traj_controller/follow_joint_trajectory" />
+	<param name="~action_topic" value="/arm_control/sensor_head_traj_controller/follow_joint_trajectory" />
 	<param name="~acceleration" value="15.5" />
-	<param name="~min_angle" value="-2.2" />
-	<param name="~max_angle" value="2.2" />
+	<param name="~min_angle" value="-0.52" />
+	<param name="~max_angle" value="0.52" />
 	<remap from="velocity_command" to="sweep_velocity_command" />
 </node>
 

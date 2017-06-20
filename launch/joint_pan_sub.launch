@@ -4,7 +4,7 @@
 
 <node name="simple_joint_pan_node" pkg="vigir_simple_joint_pan" type="joint_pan_node" output="screen">
 	<rosparam param="default_joint_config">
-        sensor_head_pitch_joint: 2.6
+        sensor_head_pitch_joint: 1.6
         sensor_head_yaw_joint: 0.0 # panning
     </rosparam>
 	<param name="~panning_joint_name" value="sensor_head_yaw_joint" />

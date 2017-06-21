@@ -11,7 +11,7 @@
 
 	<param name="~action_topic" value="/arm_control/sensor_head_traj_controller/follow_joint_trajectory" />
 	<param name="~acceleration" value="15.5" />
-	<param name="~min_angle" value="-0.52" />
+	<param name="~min_angle" value="-0.1" />
 	<param name="~max_angle" value="0.52" />
 	<remap from="velocity_command" to="sweep_velocity_command" />
 </node>
